@@ -109,7 +109,7 @@ function Navbar() {
 }
 
 /* ── Demo Card (hero right) ─────────────────────────────────────────────────── */
-const AGENT_TYPES = ['General', 'Programări', 'Comenzi', 'Recepționer', 'Suport']
+const AGENT_TYPES = ['General / Suport', 'Programări', 'Comenzi']
 
 const PhoneIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -118,17 +118,15 @@ const PhoneIcon = () => (
 )
 
 const AGENT_ROUTES = {
-  'General':     'ws://localhost:3000/ws/support',
-  'Programări':  'ws://localhost:3000/ws/support',
-  'Comenzi':     'ws://localhost:3000/ws/orders',
-  'Recepționer': 'ws://localhost:3000/ws/support',
-  'Suport':      'ws://localhost:3000/ws/support',
+  'General / Suport': 'ws://localhost:3000/ws/support',
+  'Programări':       'ws://localhost:3000/ws/bookings',
+  'Comenzi':          'ws://localhost:3000/ws/orders',
 }
 
 const TTS_URL = 'http://localhost:3000/api/tts'
 
 function DemoCard() {
-  const [active, setActive]     = useState('Recepționer')
+  const [active, setActive]     = useState('General / Suport')
   const [calling, setCalling]   = useState(false)
   const [messages, setMessages] = useState([])
   const [interim, setInterim]   = useState('')
