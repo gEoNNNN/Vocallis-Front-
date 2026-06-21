@@ -429,7 +429,7 @@ function Features() {
   return (
     <section id="features" className="features">
       <div className="container">
-        <div className="section-header">
+        <div className="section-header" data-reveal>
           <div className="section-tag">Funcționalități</div>
           <h2 className="section-title">Tot ce ai nevoie pentru<br /><span className="grad-text">automatizarea apelurilor</span></h2>
           <p className="section-sub" style={{ margin: '0 auto' }}>
@@ -438,7 +438,7 @@ function Features() {
         </div>
         <div className="features__grid">
           {cards.map((c, i) => (
-            <div key={i} className="feature-card">
+            <div key={i} className="feature-card" data-reveal data-delay={i % 3 + 1}>
               <div className="feature-card__icon">{c.icon}</div>
               <div className="feature-card__title">{c.title}</div>
               <div className="feature-card__desc">{c.desc}</div>
@@ -461,14 +461,14 @@ function HowItWorks() {
   return (
     <section id="how" className="how">
       <div className="container">
-        <div className="section-header">
+        <div className="section-header" data-reveal>
           <div className="section-tag">Proces</div>
           <h2 className="section-title">De la apel la răspuns<br /><span className="grad-text">în mai puțin de 500ms</span></h2>
           <p className="section-sub" style={{ margin: '0 auto' }}>Un pipeline AI complet, optimizat pentru latență minimă și acuratețe maximă.</p>
         </div>
         <div className="steps">
           {steps.map((s, i) => (
-            <div key={i} className="step">
+            <div key={i} className="step" data-reveal data-delay={i + 1}>
               <div className="step__num-wrap">
                 <span className="step__num">{s.n}</span>
               </div>
@@ -495,14 +495,14 @@ function Industries() {
   return (
     <section id="industries" className="industries">
       <div className="container">
-        <div className="section-header">
+        <div className="section-header" data-reveal>
           <div className="section-tag">Industrii</div>
           <h2 className="section-title">Funcționează în orice<br /><span className="grad-text">tip de afacere</span></h2>
           <p className="section-sub" style={{ margin: '0 auto' }}>VoCALLis se adaptează la specificul fiecărei industrii, cu răspunsuri personalizate.</p>
         </div>
         <div className="industries__grid">
           {list.map((item, i) => (
-            <div key={i} className="industry-card">
+            <div key={i} className="industry-card" data-reveal data-delay={i % 3 + 1}>
               <div className="industry-card__icon">{item.icon}</div>
               <div>
                 <div className="industry-card__title">{item.title}</div>
@@ -539,7 +539,7 @@ function Pricing() {
   return (
     <section id="pricing" className="pricing">
       <div className="container">
-        <div className="section-header">
+        <div className="section-header" data-reveal>
           <div className="section-tag">Prețuri</div>
           <h2 className="section-title">Simplu și transparent<br /><span className="grad-text">fără surprize</span></h2>
           <p className="section-sub" style={{ margin: '0 auto' }}>Plătești lunar, anulezi oricând. Toate planurile includ setup și onboarding.</p>
@@ -577,13 +577,13 @@ function CTASection() {
   return (
     <section className="cta-section">
       <div className="container">
-        <div className="section-tag">Hai să începem</div>
-        <h2 className="cta-section__title">Gata să automatizezi<br />comunicarea cu clienții?</h2>
-        <p className="cta-section__sub">
+        <div className="section-tag" data-reveal>Hai să începem</div>
+        <h2 className="cta-section__title" data-reveal data-delay="1">Gata să automatizezi<br />comunicarea cu clienții?</h2>
+        <p className="cta-section__sub" data-reveal data-delay="2">
           Solicită un demo gratuit și vezi cum VoCALLis poate transforma afacerea ta
           — fără operatori, fără pauze, fără apeluri pierdute.
         </p>
-        <div className="cta-section__actions">
+        <div className="cta-section__actions" data-reveal data-delay="3">
           <a href="mailto:contact@vocallis.ai" className="btn btn--primary btn--lg">
             Solicită Demo Gratuit <IconArrow />
           </a>
