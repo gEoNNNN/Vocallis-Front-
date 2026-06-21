@@ -118,12 +118,12 @@ const PhoneIcon = () => (
 )
 
 const AGENT_ROUTES = {
-  'General / Suport': 'ws://localhost:3000/ws/support',
-  'Programări':       'ws://localhost:3000/ws/bookings',
-  'Comenzi':          'ws://localhost:3000/ws/orders',
+  'General / Suport': 'wss://vocallis-back.onrender.com/ws/support',
+  'Programări':       'wss://vocallis-back.onrender.com/ws/bookings',
+  'Comenzi':          'wss://vocallis-back.onrender.com/ws/orders',
 }
 
-const TTS_URL = 'http://localhost:3000/api/tts'
+const TTS_URL = 'https://vocallis-back.onrender.com/api/tts'
 
 function DemoCard() {
   const [active, setActive]     = useState('General / Suport')
