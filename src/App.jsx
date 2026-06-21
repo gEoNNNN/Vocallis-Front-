@@ -117,78 +117,198 @@ const PhoneIcon = () => (
   </svg>
 )
 
-const WS_URL = 'ws://localhost:3000/ws/stt'
+const AGENT_ROUTES = {
+  'General':     'ws://localhost:3000/ws/support',
+  'Programări':  'ws://localhost:3000/ws/support',
+  'Comenzi':     'ws://localhost:3000/ws/orders',
+  'Recepționer': 'ws://localhost:3000/ws/support',
+  'Suport':      'ws://localhost:3000/ws/support',
+}
+
+const TTS_URL = 'http://localhost:3000/api/tts'
 
 function DemoCard() {
-  const [active, setActive]       = useState('Recepționer')
-  const [calling, setCalling]     = useState(false)
-  const [finalText, setFinalText] = useState('')
-  const [interim, setInterim]     = useState('')
-  const [error, setError]         = useState('')
+  const [active, setActive]     = useState('Recepționer')
+  const [calling, setCalling]   = useState(false)
+  const [messages, setMessages] = useState([])
+  const [interim, setInterim]   = useState('')
+  const [thinking, setThinking] = useState(false)
+  const [error, setError]       = useState('')
 
-  const wsRef       = useRef(null)
-  const recorderRef = useRef(null)
-  const streamRef   = useRef(null)
+  const wsRef         = useRef(null)
+  const audioCtxRef   = useRef(null)
+  const streamRef     = useRef(null)
+  const transcriptRef = useRef(null)
+  const speakingRef     = useRef(false)
+  const assistantBufRef = useRef('')
+  const audioElRef      = useRef(null)
+
+  // Auto-scroll când apar mesaje noi
+  useEffect(() => {
+    if (transcriptRef.current) {
+      transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight
+    }
+  }, [messages, interim, thinking])
+
+  // Redă răspunsul AI prin TTS. Mută microfonul cât timp redă, ca să nu se audă pe sine.
+  const speak = async (text) => {
+    if (!text?.trim()) return
+    try {
+      speakingRef.current = true
+      const res = await fetch(TTS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice: 'nova' }),
+      })
+      if (!res.ok) throw new Error('HTTP ' + res.status)
+      const url = URL.createObjectURL(await res.blob())
+      const audio = new Audio(url)
+      audioElRef.current = audio
+      const release = () => { URL.revokeObjectURL(url); speakingRef.current = false }
+      audio.onended = release
+      audio.onerror = release
+      await audio.play()
+    } catch (err) {
+      console.error('[TTS] error:', err)
+      speakingRef.current = false
+    }
+  }
 
   const startCall = async () => {
     setError('')
-    setFinalText('')
+    setMessages([])
     setInterim('')
+    setThinking(false)
 
+    console.log('[CALL] startCall - requesting microphone...')
     let stream
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    } catch {
+      console.log('[CALL] Microphone OK')
+    } catch (err) {
+      console.error('[CALL] Microphone error:', err)
       setError('Microfon inaccesibil. Permite accesul în browser.')
       return
     }
     streamRef.current = stream
 
-    const ws = new WebSocket(WS_URL)
+    const wsUrl = AGENT_ROUTES[active] ?? 'ws://localhost:3000/ws/support'
+    console.log('[CALL] Connecting to', wsUrl)
+    const ws = new WebSocket(wsUrl)
     ws.binaryType = 'arraybuffer'
     wsRef.current = ws
 
-    ws.onopen = () => {
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm'
-      const recorder = new MediaRecorder(stream, { mimeType })
-      recorderRef.current = recorder
+    ws.onopen = async () => {
+      console.log('[CALL] WebSocket OPEN — starting AudioWorklet')
+      try {
+        const audioCtx = new AudioContext({ sampleRate: 16000 })
+        audioCtxRef.current = audioCtx
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-          ws.send(e.data)
+        await audioCtx.audioWorklet.addModule('/pcm-processor.js')
+        const source  = audioCtx.createMediaStreamSource(stream)
+        const worklet = new AudioWorkletNode(audioCtx, 'pcm-processor')
+
+        let chunkCount = 0
+        worklet.port.onmessage = (ev) => {
+          // Nu trimite audio cât timp AI-ul vorbește (evită feedback-ul)
+          if (ws.readyState === WebSocket.OPEN && !speakingRef.current) {
+            ws.send(ev.data)
+            chunkCount++
+            if (chunkCount <= 3) console.log('[CALL] PCM chunk sent, bytes:', ev.data.byteLength)
+          }
         }
+
+        source.connect(worklet)
+        setCalling(true)
+        console.log('[CALL] AudioWorklet running at 16kHz PCM')
+      } catch (err) {
+        console.error('[CALL] AudioWorklet failed:', err)
+        setError('Eroare audio: ' + err.message)
       }
-      recorder.start(250)
-      setCalling(true)
     }
 
     ws.onmessage = (e) => {
-      const { transcript, is_final } = JSON.parse(e.data)
-      if (!transcript) return
-      if (is_final) {
-        setFinalText(prev => prev ? prev + ' ' + transcript : transcript)
-        setInterim('')
-      } else {
-        setInterim(transcript)
+      console.log('[CALL] Message from server:', e.data.slice ? e.data.slice(0, 100) : e.data)
+      const msg = JSON.parse(e.data)
+
+      switch (msg.type) {
+        case 'interim':
+          setInterim(msg.text ?? '')
+          break
+        case 'user':
+          setInterim('')
+          if (msg.text) setMessages(prev => [...prev, { role: 'user', text: msg.text }])
+          break
+        case 'thinking':
+          setThinking(true)
+          assistantBufRef.current = ''
+          break
+        case 'assistant_chunk':
+          setThinking(false)
+          assistantBufRef.current += msg.content ?? ''
+          setMessages(prev => {
+            const last = prev[prev.length - 1]
+            if (last?.role === 'assistant') {
+              return [...prev.slice(0, -1), { role: 'assistant', text: last.text + msg.content }]
+            }
+            return [...prev, { role: 'assistant', text: msg.content ?? '' }]
+          })
+          break
+        case 'assistant':
+          setThinking(false)
+          if (msg.text) {
+            setMessages(prev => [...prev, { role: 'assistant', text: msg.text }])
+            speak(msg.text)
+          }
+          break
+        case 'assistant_end':
+          setThinking(false)
+          if (assistantBufRef.current.trim()) speak(assistantBufRef.current)
+          break
+        case 'order_confirmed':
+          break
+        case 'error':
+          setError(msg.message ?? 'Eroare necunoscută.')
+          break
+        default:
+          // Format simplu { transcript, is_final } de la /ws/stt
+          if (msg.transcript !== undefined) {
+            if (msg.is_final) {
+              if (msg.transcript) setMessages(prev => [...prev, { role: 'user', text: msg.transcript }])
+              setInterim('')
+            } else {
+              setInterim(msg.transcript ?? '')
+            }
+          }
       }
     }
 
-    ws.onerror = () => setError('Eroare conexiune. Verifică dacă serverul rulează.')
-    ws.onclose = () => { if (calling) stopCall() }
+    ws.onerror = (ev) => {
+      console.error('[CALL] WebSocket ERROR', ev)
+      setError('Nu pot contacta serverul. Verifică că backend-ul rulează pe portul 3000.')
+    }
+    ws.onclose = (ev) => {
+      console.warn('[CALL] WebSocket CLOSED code=' + ev.code + ' reason=' + ev.reason)
+      setCalling(false)
+    }
   }
 
   const stopCall = () => {
-    recorderRef.current?.stop()
+    audioElRef.current?.pause()
+    audioElRef.current = null
+    speakingRef.current = false
+    audioCtxRef.current?.close()
     streamRef.current?.getTracks().forEach(t => t.stop())
     if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.close()
-    recorderRef.current = null
+    audioCtxRef.current = null
     streamRef.current   = null
     wsRef.current       = null
     setCalling(false)
     setInterim('')
+    setThinking(false)
   }
+
+  const hasConversation = messages.length > 0 || interim || thinking
 
   return (
     <div className={`demo-card${calling ? ' demo-card--calling' : ''}`}>
@@ -216,7 +336,8 @@ function DemoCard() {
         {/* Pills */}
         <div className="demo-card__pills">
           {AGENT_TYPES.map(t => (
-            <button key={t} className={`demo-pill${active === t ? ' demo-pill--active' : ''}`} onClick={() => setActive(t)}>{t}</button>
+            <button key={t} className={`demo-pill${active === t ? ' demo-pill--active' : ''}`}
+              onClick={() => !calling && setActive(t)}>{t}</button>
           ))}
         </div>
 
@@ -229,18 +350,31 @@ function DemoCard() {
           {calling ? 'Oprește Apelul' : 'Pornește Apelul'}
         </button>
 
-        {/* Transcript */}
-        <div className="demo-transcript">
+        {/* Conversation transcript */}
+        <div className="demo-transcript" ref={transcriptRef}>
           {error ? (
             <span className="demo-transcript__error">{error}</span>
-          ) : finalText || interim ? (
-            <p className="demo-transcript__text">
-              {finalText && <span className="demo-transcript__final">{finalText} </span>}
-              {interim  && <span className="demo-transcript__interim">{interim}</span>}
-            </p>
+          ) : hasConversation ? (
+            <div className="demo-conversation">
+              {messages.map((m, i) => (
+                <div key={i} className={`demo-msg demo-msg--${m.role}`}>
+                  {m.text}
+                </div>
+              ))}
+              {thinking && (
+                <div className="demo-msg demo-msg--assistant demo-msg--thinking">
+                  <span /><span /><span />
+                </div>
+              )}
+              {interim && (
+                <div className="demo-msg demo-msg--user demo-msg--interim">{interim}</div>
+              )}
+            </div>
           ) : (
             <span className="demo-transcript__hint">
-              {calling ? <>Ascultă<span className="demo-transcript__dots" /></> : 'Textul conversației va apărea aici...'}
+              {calling
+                ? <><span className="demo-transcript__listen">Ascultă</span><span className="demo-transcript__dots" /></>
+                : 'Conversația va apărea aici...'}
             </span>
           )}
         </div>
