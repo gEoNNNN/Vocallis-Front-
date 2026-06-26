@@ -127,6 +127,7 @@ const TTS_URL = 'https://vocallis-back.onrender.com/api/tts'
 
 function DemoCard() {
   const [active, setActive]     = useState('General / Suport')
+  const [lang, setLang]         = useState('ro')
   const [calling, setCalling]   = useState(false)
   const [messages, setMessages] = useState([])
   const [interim, setInterim]   = useState('')
@@ -156,7 +157,7 @@ function DemoCard() {
       const res = await fetch(TTS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voice: 'nova' }),
+        body: JSON.stringify({ text, lang }),
       })
       if (!res.ok) throw new Error('HTTP ' + res.status)
       const url = URL.createObjectURL(await res.blob())
@@ -190,7 +191,7 @@ function DemoCard() {
     }
     streamRef.current = stream
 
-    const wsUrl = AGENT_ROUTES[active] ?? 'ws://localhost:3000/ws/support'
+    const wsUrl = (AGENT_ROUTES[active] ?? 'wss://vocallis-back.onrender.com/ws/support') + `?lang=${lang}`
     console.log('[CALL] Connecting to', wsUrl)
     const ws = new WebSocket(wsUrl)
     ws.binaryType = 'arraybuffer'
@@ -321,22 +322,33 @@ function DemoCard() {
           {calling ? (
             <div className="demo-orb-wrap">
               <div className="demo-orb" />
-              <p className="demo-orb__status">Apel activ</p>
+              <p className="demo-orb__status">{lang === 'ru' ? 'Апел актив' : 'Apel activ'}</p>
             </div>
           ) : (
             <div className="demo-card__idle">
-              <h3 className="demo-card__title">Vorbește cu Agentul AI</h3>
-              <p className="demo-card__sub">Selectează tipul de agent și apasă butonul pentru a începe.</p>
+              <h3 className="demo-card__title">{lang === 'ru' ? 'Поговорите с AI ассистентом' : 'Vorbește cu Agentul AI'}</h3>
+              <p className="demo-card__sub">{lang === 'ru' ? 'Выберите тип ассистента и нажмите кнопку.' : 'Selectează tipul de agent și apasă butonul pentru a începe.'}</p>
             </div>
           )}
         </div>
 
-        {/* Pills */}
-        <div className="demo-card__pills">
-          {AGENT_TYPES.map(t => (
-            <button key={t} className={`demo-pill${active === t ? ' demo-pill--active' : ''}`}
-              onClick={() => !calling && setActive(t)}>{t}</button>
-          ))}
+        {/* Language toggle + Agent pills */}
+        <div className="demo-card__controls">
+          <div className="lang-toggle">
+            {['ro', 'ru'].map(l => (
+              <button key={l}
+                className={`lang-pill${lang === l ? ' lang-pill--active' : ''}`}
+                onClick={() => !calling && setLang(l)}>
+                {l.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          <div className="demo-card__pills">
+            {AGENT_TYPES.map(t => (
+              <button key={t} className={`demo-pill${active === t ? ' demo-pill--active' : ''}`}
+                onClick={() => !calling && setActive(t)}>{t}</button>
+            ))}
+          </div>
         </div>
 
         {/* Call button */}
@@ -345,7 +357,10 @@ function DemoCard() {
           onClick={calling ? stopCall : startCall}
         >
           <PhoneIcon />
-          {calling ? 'Oprește Apelul' : 'Pornește Apelul'}
+          {calling
+            ? (lang === 'ru' ? 'Завершить звонок' : 'Oprește Apelul')
+            : (lang === 'ru' ? 'Начать звонок' : 'Pornește Apelul')
+          }
         </button>
 
         {/* Conversation transcript */}

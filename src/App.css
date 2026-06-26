@@ -242,6 +242,24 @@
 .demo-card__sub {
   font-size: .8rem; color: var(--muted); line-height: 1.55;
 }
+.demo-card__controls {
+  display: flex; flex-direction: column; align-items: center; gap: .5rem; width: 100%;
+}
+.lang-toggle {
+  display: flex; gap: .25rem;
+  background: rgba(0,0,0,.05); border-radius: 999px; padding: .2rem;
+}
+.lang-pill {
+  padding: .25rem .75rem; border-radius: 999px; border: none;
+  font-size: .75rem; font-weight: 700; letter-spacing: .05em;
+  color: var(--muted); background: transparent; cursor: pointer;
+  transition: all .15s;
+}
+.lang-pill:hover { color: var(--dark); }
+.lang-pill--active {
+  background: #fff; color: var(--blue);
+  box-shadow: 0 1px 4px rgba(0,0,0,.12);
+}
 .demo-card__pills {
   display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center;
 }
